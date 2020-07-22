@@ -1,0 +1,142 @@
+<html>
+  <head>
+    <script type="text/javascript" src="js/three.js"></script>
+    <script type="text/javascript" src="js/dat.gui.js"></script>
+    <script type="text/javascript" src="js/ConvexGeometry.js"></script>
+    <script type="text/javascript" src="js/OrbitalControls.js"></script>
+    <script type="text/javascript" src="js/SimplexNoise.js"></script>
+    <script type="text/javascript" src="js/PlanetBufferGeometry.js"></script>
+    <script type="text/javascript" src="js/Lut.js"></script>
+  </head>
+  
+  <body>
+    <br>
+    <div id="Stats-output"></div>
+    <!-- Div which will hold the Output -->
+    <div id="container"></div>
+    <script type="x-shader/x-vertex" id="vertexShader">
+        /*
+         * The main program
+         */
+         // The sphere radius
+        uniform float u_radius;
+        uniform vec2 u_mouse;
+
+        attribute float elevation;
+
+        // Common varyings
+        varying vec3 v_position;
+        varying vec3 v_normal;
+
+        // Varying containing the sphere elevation
+        varying float v_elevation;
+
+        // Calculates the vertex displaced position
+        vec3 getDisplacedPosition(vec3 position) {
+
+            float shift = 20.0 * (elevation);
+            // flatten ocean
+            if(elevation < 0.0){
+                shift = 0.0;
+            } 
+
+        	return (position + normal * shift );
+        }
+
+
+        void main() {
+            // Calculate the new vertex position
+            vec3 new_position = getDisplacedPosition(position);
+        
+        	// Calculate the modelview position
+            vec4 mv_position = modelViewMatrix * vec4(new_position, 1.0);
+        
+        	// Save the varyings
+            v_elevation = 20.0 * elevation;
+            v_position = mv_position.xyz;
+            v_normal = normal;
+        
+        	// Vertex shader output
+        	gl_Position = projectionMatrix * mv_position;
+        }
+    </script>
+        
+    <script type="x-shader/x-fragment" id="fragmentShader">
+        #define GLSLIFY 1
+        // Common uniforms
+        uniform vec3 u_light_direction;
+        uniform float u_radius;
+
+        /*
+         *  Calculates the diffuse factor produced by the light illumination
+         */
+        float diffuseFactor(vec3 normal, vec3 light_direction) {
+            float df = dot(normalize(normal), normalize(light_direction));
+        
+            if (gl_FrontFacing) {
+                df = -df;
+            }
+        
+            return max(0.0, df);
+        }
+
+        vec3 calculateNormal(vec3 position) {
+            vec3 fdx = vec3(dFdx(position.x), dFdx(position.y), dFdx(position.z));
+            vec3 fdy = vec3(dFdy(position.x), dFdy(position.y), dFdy(position.z));
+            vec3 normal = normalize(cross(fdx, fdy));
+        
+            if (!gl_FrontFacing) {
+                normal = -normal;
+            }
+        
+            return normal;
+        }
+
+        // Common varyings
+        varying vec3 v_position;
+        varying float v_elevation;
+        varying vec3 v_normal;
+
+        // materials
+        const vec3 ROCK = vec3(0.50, 0.35, 0.15);
+        const vec3 TREE = vec3(0.05, 1.15, 0.10);
+        const vec3 SAND = vec3(1.00, 1.00, 0.85);
+        const vec3 ICE  = vec3(0.85, 1.00, 1.20);
+
+
+        /*
+         * The main program
+         */
+        void main() {
+            // Calculate the new normal vector
+            vec3 new_normal = calculateNormal(v_position);
+
+            vec3 surface_color = vec3(0,0,0);
+        
+            // Set the default surface color
+            if(v_elevation > 0.94){
+                surface_color = ICE;
+            }else if(v_elevation > 0.70){
+                surface_color = ROCK;
+            }else if(v_elevation > 0.20){
+                surface_color = TREE;
+            }else if(v_elevation > 0.002){
+                surface_color = SAND;
+            }else if(v_elevation > -0.185){
+                vec3 shallowWaterColor = vec3(0.4, 1.0, 1.9);
+                surface_color = shallowWaterColor;
+            }else{
+                vec3 deepWaterColor = vec3(0, 0.1, 0.7);
+                surface_color = deepWaterColor;
+            }
+
+        	// Apply the light diffusion factor
+            surface_color *= 0.8;
+        
+        	// Fragment shader output
+        	gl_FragColor = vec4(surface_color, 1.0);
+       }
+    </script>
+    <script type="text/javascript" src="js/world.js"></script>
+  </body>
+</html>
